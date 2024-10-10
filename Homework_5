@@ -1,11 +1,11 @@
+# Importing required modules
 from airflow import DAG
 from airflow.decorators import task
 from airflow.utils.dates import days_ago
 from airflow.models import Variable
 import requests
 from datetime import datetime, timedelta
-import snowflake.connector
-import pandas as pd
+from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 
 default_args = {
     'owner': 'airflow',
@@ -33,48 +33,25 @@ def get_stock_data():
     ninety_days_ago = today - timedelta(days=90)
 
     for date_str, daily_data in data["Time Series (Daily)"].items():
-      date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-      if date_obj >= ninety_days_ago:
-        stock_info = {
-            "date": date_str,
-            "open": daily_data["1. open"],
-            "high": daily_data["2. high"],
-            "low": daily_data["3. low"],
-            "close": daily_data["4. close"],
-            "volume": daily_data["5. volume"]
-        }
-        results.append(stock_info)
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+        if date_obj >= ninety_days_ago:
+            stock_info = {
+                "date": date_str,
+                "open": daily_data["1. open"],
+                "high": daily_data["2. high"],
+                "low": daily_data["3. low"],
+                "close": daily_data["4. close"],
+                "volume": daily_data["5. volume"]
+            }
+            results.append(stock_info)
     return results
 
 @task
 def create_new_table():
-    conn = snowflake.connector.connect(
-        user=Variable.get("Snowflake_Username"),
-        password=Variable.get("Snowflake_Password"),
-        account=Variable.get("Snowflake_Account"),
-    )
+    hook = SnowflakeHook(snowflake_conn_id='snowflake_conn')  
+    conn = hook.get_conn()  # Get connection from hook
     create_table_query = """
     CREATE TABLE IF NOT EXISTS NEW_DATA.raw_data.NEW_TABLE (
-        id INTEGER AUTOINCREMENT PRIMARY KEY,
-        name STRING,
-        value FLOAT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """
-    cur = conn.cursor()
-    cur.execute(create_table_query)
-    conn.commit()
-    cur.close()
-
-@task
-def load_to_snowflake(stock_data):
-    conn = snowflake.connector.connect(
-        user=Variable.get("Snowflake_Username"),
-        password=Variable.get("Snowflake_Password"),
-        account=Variable.get("Snowflake_Account"),
-    )
-    create_table_query = """
-    CREATE OR REPLACE TABLE NEW_DATA.raw_data.NEW_TABLE (
         date DATE PRIMARY KEY,
         open FLOAT,
         high FLOAT,
@@ -86,10 +63,18 @@ def load_to_snowflake(stock_data):
     """
     cur = conn.cursor()
     cur.execute(create_table_query)
+    conn.commit()
+    cur.close()
+
+@task
+def load_to_snowflake(stock_data):
+    hook = SnowflakeHook(snowflake_conn_id='snowflake_conn') 
+    conn = hook.get_conn()  # Get connection from hook
     insert_query = """
     INSERT INTO NEW_DATA.raw_data.NEW_TABLE (date, open, high, low, close, volume, symbol)
     VALUES (%s, %s, %s, %s, %s, %s, %s)
     """
+    cur = conn.cursor()
     for record in stock_data:
         cur.execute(insert_query, (record['date'], record['open'], record['high'], record['low'], record['close'], record['volume'], 'NFLX'))
     conn.commit()
@@ -97,15 +82,12 @@ def load_to_snowflake(stock_data):
 
 @task
 def check_table_stats():
-    conn = snowflake.connector.connect(
-        user=Variable.get("Snowflake_Username"),
-        password=Variable.get("Snowflake_Password"),
-        account=Variable.get("Snowflake_Account"),
-    )
+    hook = SnowflakeHook(snowflake_conn_id='snowflake_conn')  
+    conn = hook.get_conn()  # Get connection from hook
     cur = conn.cursor()
     result = cur.execute("SELECT COUNT(*) FROM NEW_DATA.raw_data.NEW_TABLE")
     count = result.fetchone()
-    print(f"Number of records in the table: {count}")
+    print(f"Number of records in the table: {count[0]}")
     cur.close()
     conn.close()
 
