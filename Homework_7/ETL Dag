@@ -43,7 +43,18 @@ with DAG(
         """
     )
 
-    # Task 3: Load data into user_session_channel table
+    # Task 3: Create stage
+    create_blob_stage = SnowflakeOperator(
+        task_id='create_blob_stage',
+        snowflake_conn_id='snowflake_conn',
+        sql="""
+        CREATE OR REPLACE STAGE NEW_DATA.raw_data.blob_stage
+        url = 's3://s3-geospatial/readonly/'
+        file_format = (type = csv, skip_header = 1, field_optionally_enclosed_by = '"');
+        """
+    )
+
+    # Task 4: Load data into user_session_channel table
     load_user_session_channel = SnowflakeOperator(
         task_id='load_user_session_channel_data',
         snowflake_conn_id='snowflake_conn',
@@ -54,7 +65,7 @@ with DAG(
         """
     )
 
-    # Task 4: Load data into session_timestamp table
+    # Task 5: Load data into session_timestamp table
     load_session_timestamp = SnowflakeOperator(
         task_id='load_session_timestamp_data',
         snowflake_conn_id='snowflake_conn',
