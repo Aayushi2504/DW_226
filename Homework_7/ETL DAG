@@ -20,6 +20,7 @@ with DAG(
     catchup=False
 ) as dag:
 
+    # Task 1: Create user_session_channel table
     create_user_session_channel = SnowflakeOperator(
         task_id='create_user_session_channel_table',
         snowflake_conn_id='snowflake_conn', 
@@ -32,6 +33,7 @@ with DAG(
         """
     )
 
+    # Task 2: Create sessiom_timestamp table
     create_session_timestamp = SnowflakeOperator(
         task_id='create_session_timestamp_table',
         snowflake_conn_id='snowflake_conn',
@@ -76,6 +78,6 @@ with DAG(
         """
     )
 
-    # Task dependencies (ensure correct order of execution)
+    # Task dependencies
     create_user_session_channel >> load_user_session_channel
     create_session_timestamp >> load_session_timestamp
