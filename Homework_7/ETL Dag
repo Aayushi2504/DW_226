@@ -1,0 +1,70 @@
+from airflow import DAG
+from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
+from airflow.utils.dates import days_ago
+from datetime import timedelta
+from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
+
+# Default args for DAG
+default_args = {
+    'owner': 'airflow',
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+}
+
+with DAG(
+    'WAU_Dag',  
+    default_args=default_args,
+    description='ETL Pipeline for loading user session data into Snowflake',
+    schedule_interval= '@daily',  
+    start_date=days_ago(1),
+    catchup=False
+) as dag:
+
+    create_user_session_channel = SnowflakeOperator(
+        task_id='create_user_session_channel_table',
+        snowflake_conn_id='snowflake_conn', 
+        sql="""
+        CREATE TABLE IF NOT EXISTS NEW_DATA.raw_data.user_session_channel (
+            userId int not NULL,
+            sessionId varchar(32) primary key,
+            channel varchar(32) default 'direct'
+        );
+        """
+    )
+
+    create_session_timestamp = SnowflakeOperator(
+        task_id='create_session_timestamp_table',
+        snowflake_conn_id='snowflake_conn',
+        sql="""
+        CREATE TABLE IF NOT EXISTS NEW_DATA.raw_data.session_timestamp (
+            sessionId varchar(32) primary key,
+            ts timestamp
+        );
+        """
+    )
+
+    # Task 3: Load data into user_session_channel table
+    load_user_session_channel = SnowflakeOperator(
+        task_id='load_user_session_channel_data',
+        snowflake_conn_id='snowflake_conn',
+        sql="""
+        COPY INTO NEW_DATA.raw_data.user_session_channel
+        FROM @NEW_DATA.raw_data.blob_stage/user_session_channel.csv
+        FILE_FORMAT = (type = csv, skip_header = 1, field_optionally_enclosed_by = '"');
+        """
+    )
+
+    # Task 4: Load data into session_timestamp table
+    load_session_timestamp = SnowflakeOperator(
+        task_id='load_session_timestamp_data',
+        snowflake_conn_id='snowflake_conn',
+        sql="""
+        COPY INTO NEW_DATA.raw_data.session_timestamp
+        FROM @NEW_DATA.raw_data.blob_stage/session_timestamp.csv
+        FILE_FORMAT = (type = csv, skip_header = 1, field_optionally_enclosed_by = '"');
+        """
+    )
+
+    # Task dependencies (ensure correct order of execution)
+    create_user_session_channel >> load_user_session_channel
+    create_session_timestamp >> load_session_timestamp
