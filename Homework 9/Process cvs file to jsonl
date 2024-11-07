@@ -1,0 +1,44 @@
+import pandas as pd
+import json
+
+
+def collapse_genres(j):
+    genres = []
+    try:
+        ar = json.loads(j)
+        for a in ar:
+            genres.append(a.get("name", ""))
+        return " ".join(sorted(genres))
+    except json.JSONDecodeError:
+        return ""
+
+def combine_features(row):
+  try:
+    return row['description']+" "+row["genres_name"]
+  except:
+    print ("Error:", row)
+
+
+def process_goodreads_csv(input_file, output_file):
+
+  books = pd.read_csv(input_file)
+  books['genres_name'] = books.apply(lambda x: collapse_genres(x.genres), axis=1)
+  for f in ['original_title','description','genres_name']:
+    books[f] = books[f].fillna('')
+
+  books["text"] = books.apply(combine_features,axis=1)
+  # Select only 'id', 'original_title', and 'text' columns
+  books = books[['book_id', 'original_title', 'text']]
+  books.rename(columns={'original_title': 'title', 'book_id': 'doc_id'}, inplace=True)
+
+  # Create 'fields' column as JSON-like structure of each record
+  books['fields'] = books.apply(lambda row: row.to_dict(), axis=1)
+
+  # Create 'put' column based on 'doc_id'
+  books['put'] = books['doc_id'].apply(lambda x: f"id:hybrid-search:doc::{x}")
+
+  df_result = books[['put', 'fields']]
+  print(df_result.head())
+  df_result.to_json(output_file, orient='records', lines=True)
+
+process_goodreads_csv("goodreads_books.csv", "clean_books.jsonl")
