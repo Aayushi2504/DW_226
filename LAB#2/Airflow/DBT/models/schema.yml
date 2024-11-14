@@ -1,0 +1,46 @@
+version: 2
+
+models:
+  - name: moving_average
+    description: "Calculates 7-day and 30-day moving averages of stock closing prices."
+    columns:
+      - name: moving_avg_7d
+        description: "7-day moving average of the stock's close price."
+        data_tests:
+          - not_null
+
+  - name: rsi_calculation
+    description: "RSI calculation for stocks"
+    columns:
+      - name: date
+        description: "The date of the stock data"
+      - name: symbol
+        description: "The stock symbol (ticker)"
+      - name: avg_gain_14d
+        description: "The average gain over the past 14 days"
+      - name: avg_loss_14d
+        description: "The average loss over the past 14 days"
+      - name: rsi_14d
+        description: "The Relative Strength Index (RSI) over the past 14 days"
+
+  - name: stock_data
+    description: "Raw stock data pulled from the New_Data.raw_data.market_dat table."
+    columns:
+      - name: date
+        description: "Date of the stock data."
+        data_tests:
+          - not_null
+      - name: symbol
+        description: "Stock symbol (e.g., AAPL for Apple, TSLA for Tesla)."
+        data_tests:
+          - not_null
+      - name: open
+        description: "Opening price of the stock on the given date."
+      - name: max
+        description: "Highest price of the stock on the given date."
+      - name: min
+        description: "Lowest price of the stock on the given date."
+      - name: close
+        description: "Closing price of the stock on the given date."
+      - name: volume
+        description: "Trading volume of the stock on the given date."
