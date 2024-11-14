@@ -1,0 +1,34 @@
+version: 2
+
+sources:
+  - name: stock_analysis_project
+    description: "Source data for stock information loaded from Snowflake."
+    database: "New_Data"
+    schema: "raw_data"
+    tables:
+      - name: market_data
+        description: "Raw stock data table containing information for multiple symbols."
+        columns:
+          - name: date
+            description: "Date of the stock data."
+            tests:
+              - not_null
+          - name: symbol
+            description: "Stock symbol (e.g., AAPL, TSLA)."
+            tests:
+              - not_null
+          - name: open
+            description: "Opening price of the stock on the given date."
+          - name: max
+            description: "Highest price of the stock on the given date."
+          - name: min
+            description: "Lowest price of the stock on the given date."
+          - name: close
+            description: "Closing price of the stock on the given date."
+          - name: volume
+            description: "Trading volume of the stock on the given date."
+
+# models/sources.yml
+version: 2
+
+
