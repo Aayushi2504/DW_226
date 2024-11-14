@@ -1,5 +1,4 @@
 -- models/stock_data.sql
-
 WITH raw_stock_data AS (
     SELECT 
         date,
